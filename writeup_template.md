@@ -39,13 +39,13 @@ You're reading it!
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-TODO: Add your text here!!!
+ First i define the ideal board using rows and collumns of inner edges counted on the sample pictures for calibration(9x6) after which we grayscale the image because it only need intensity and call findChessboardCorners over the gray scaled image. If the corners were found the save them , after refining their position with cornerSubPix, with the ideal points. After that we calibrate our camera using the ideal and found pairs. Which returns calculated mtx for matrix and dist for distortion value which is later used for undistorting images. The rvecs and tvecs are used for error calculation.
 
 ### Pipeline (single images)
 
 #### 1. Provide an example of a distortion-corrected image.
 
-TODO: Add your text here!!!
+~~/Zadatak/solutions/solution_1.png
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
