@@ -12,6 +12,7 @@ The goals / steps of this project are the following:
 * Apply a distortion correction to raw images.
 * Use color transforms, gradients, etc., to create a thresholded binary image.
 * Apply a perspective transform to rectify binary image ("birds-eye view").
+
 * Detect lane pixels and fit to find the lane boundary.
 * Determine the curvature of the lane and vehicle position with respect to center.
 * Warp the detected lane boundaries back onto the original image.
@@ -49,11 +50,12 @@ You're reading it!
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-TODO: Add your text here!!!
+    For this task i just used the canny pipeline transformation as well as added the HPF (High Pass Filer) for better edges. First i used gaussian filter after which i used THRESHOLD BINARY and called canny function. 
+
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-TODO: Add your text here!!!
+    For this i used the example priveded to figure out what points i needed for the task. The configerd points declare a trapezoid surface which i then translated to a square , using a function and example i found on openCV documentation website, to get a "birds eye view" perspective. 
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
