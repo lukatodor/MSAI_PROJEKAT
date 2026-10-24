@@ -30,9 +30,13 @@ The goals / steps of this project are the following:
 ---
 ### Sources
 https://docs.opencv.org/5.0/
+
 https://medium.com/deepvision/udacity-advance-lane-detection-of-the-road-in-autonomous-driving-5faa44ded487
+
 https://nsrishankar.github.io/files/docs/projects/SDND_T1P4_AdvancedLaneDetection.pdf
+
 10th Presentation - 10 Algoritmi u AV.pdf -
+
 ### Writeup / README
 
 #### 1. Provide a Writeup that includes all the rubric points and how you addressed each one.
