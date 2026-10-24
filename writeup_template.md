@@ -28,7 +28,11 @@ The goals / steps of this project are the following:
 [video1]: ./project_video.mp4 "Video"
 
 ---
-
+### Sources
+https://docs.opencv.org/5.0/
+https://medium.com/deepvision/udacity-advance-lane-detection-of-the-road-in-autonomous-driving-5faa44ded487
+https://nsrishankar.github.io/files/docs/projects/SDND_T1P4_AdvancedLaneDetection.pdf
+10th Presentation - 10 Algoritmi u AV.pdf -
 ### Writeup / README
 
 #### 1. Provide a Writeup that includes all the rubric points and how you addressed each one.
@@ -39,8 +43,9 @@ You're reading it!
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-First i define the ideal board using rows and collumns of inner edges counted on the sample pictures for calibration(9x6) after which we grayscale the image because it only needs intensity. Then call findChessboardCorners over the image. If the corners were found then save them, after refining their position with cornerSubPix, with the ideal points. After that we calibrate our camera using the ideal and found pairs. Which returns calculated mtx for matrix and dist for distortion value which is later used for undistorting images. The rvecs and tvecs are used for error calculation.
+First I define the ideal board using the rows and columns of inner corners counted on the sample pictures for calibration (9x6), after which I grayscale the image because only intensity is needed. Then I call findChessboardCorners over the image. If the corners were found, I refine their position with cornerSubPix and save them together with the ideal points. After that I calibrate the camera using the ideal and found pairs, which returns mtx for the camera matrix and dist for the distortion coefficients. These are saved to img/calib.npz and later used for undistorting images. The rvecs and tvecs are used for error calculation.
 
+Before undistorting, I compute a new camera matrix with getOptimalNewCameraMatrix. Its alpha parameter decides how the black areas created by undistortion are handled. Alpha = 1 all original pixels are kept and black areas appear at the edges, while with alpha = 0 the image is cropped and scaled so that only valid pixels remain. For the example picture I used alpha = 1, but later in the project I set it to 0, since an image without black edges is easier to work with.
 ### Pipeline (single images)
 
 #### 1. Provide an example of a distortion-corrected image.
@@ -49,17 +54,17 @@ First i define the ideal board using rows and collumns of inner edges counted on
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-At first i tried to just use canny and grayscale picture to segway into harison detecion of lines but after considering the slides on the 10th presentation i decided to continue using the 2nd method described concluding it would be a better option. The 2nd method uses the LDC image in color as input. Considering there where 2 sources of pictures and they differ in quality and position mostly i made 2 file basically the same differing only in use of distortion, transformation matrix and color transformation slightly. This was done for easier testing and adjustments. 
-
-In pipeline.py meant for the lower resolution pictures i used the red channel of the rgb picture and compare the value with the threshold. For the pictures with more resolutiona as well as front bumber present I used the same idea for the rgb and detecting white lines but used basic hsv thresholds (H = 15-40, S = 90 V = 100) for determening yellow track on screen.   
+At first I tried to just use Canny on a grayscale picture to segue into Hough detection of lines, but after considering the slides from the 10th presentation I decided to continue with the 2nd method described there, concluding it would be a better option. Considering there were 2 sources of pictures that differ mostly in quality and camera position, I made 2 files that are basically the same and differ only in the use of distortion correction and the transformation matrix. This was done for easier testing and adjustments. pipeline.py is meant for the lower resolution pictures (960x540) and works on the original image, while pipeline2.py is meant for the higher resolution pictures with the front bumper visible (1280x720), and works on the distortion corrected image, since the calibration was done for that camera.
+ 
+The binary image is made in the to_binary() function, which is the same in both files. For the white lines I use the red channel of the image and compare its value with a threshold (R >= 190), since white lines are bright in all channels. For the yellow line I convert the image to HSV and use basic thresholds (H = 15-40, S >= 70, V >= 100). The two masks are combined with OR, and a morphological opening with a 3x3 kernel removes small noise.
 ![Alt text](docs/solution_2.png)
 ![Alt text](docs/solution_2_1.png)
 
+
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-For this i used the example provided to figure out what points i needed for the task. And using some documentation online as well I experimented and got the values for both types of pictures. The configerd points declare a trapezoid surface which i then translated to a square , using a function and example i found on openCV documentation website, to get a "birds eye view" perspective. The problems i encountered here were configuring the points so that most of the road was visable as well as not too much because the further away pixels where too blurry to discern. 
+The perspective transform is done in the perspective_matrices() and warp() functions. For this I used the example provided to figure out what points I needed for the task, and using some documentation online as well I experimented and got the values for both types of pictures. The configured points declare a trapezoid on the road which I then map to a rectangle, using getPerspectiveTransform and warpPerspective from the OpenCV documentation, to get a "birds eye view" perspective. The same function also returns the inverse matrix, which is used later to draw the lane back onto the original image. In video.py, perspective_matrices() chooses between the two sets of points based on the width of the frame. The problem I encountered here was configuring the points so that most of the road was visible, but not too much, because the pixels further away were too blurry to discern.
 ![Alt text](docs/solution_3.png)
-
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
@@ -103,7 +108,6 @@ The problem I encountered here was that the left and right radius were sometimes
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-<video src="Zadatak/docs/project_video03.mp4" controls width="1400"></video>
 
 ### Discussion
 
