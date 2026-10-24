@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/0100387c-8a40-4b43-9ad2-11e7417e529b
+
 ## Writeup Template
 
 ### You use this file as a template for your writeup.
@@ -112,6 +116,9 @@ The problem I encountered here was that the left and right radius were sometimes
 ### Pipeline (video)
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+
+
+https://github.com/user-attachments/assets/360db04e-a751-4207-9e5e-255c9381b128
 
 
 ### Discussion
