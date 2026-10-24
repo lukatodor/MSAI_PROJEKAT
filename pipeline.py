@@ -1,94 +1,54 @@
 import cv2 as cv
 import numpy as np
-import glob
-# import matplotlib.pyplot as plt
 
-############################# Loading in image ######################################
-img = cv.imread('test_images/solidYellowCurve.jpg') # Load as grayscale
-img2 = cv.imread('test_images/test2.jpg') # Load as grayscale
-
-assert img is not None, "file could not be read, check with os.path.exists()"
-cv.imshow('Original', img2)
-
-H, W = img.shape[:2]
-######################################################################################
+LANE_WIDTH_M = 3.7
+LANE_LENGTH_M = 30.0
 
 
-############################### Distortion #############################################
-# Load calibrated camera parameters
-calibratio = np.load('img/calib.npz')
-mtx = calibratio['mtx']
-dist = calibratio['dist']
-rvecs = calibratio['rvecs']
-tvecs = calibratio['tvecs']
-
-# Obtain the new camera matrix and undistort the image
-newCameraMtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (W, H), 1, (W, H))
-undistortedImg = cv.undistort(img2, mtx, dist, None, newCameraMtx)
-
-# Display the final result
-# cv.imshow('Undistorted', undistortedImg)
-######################################################################################
+def load_calibration(path='img/calib.npz'):
+    calib = np.load(path)
+    return calib['mtx'], calib['dist']
 
 
-################################ BEV-(Birds Eye View) ###############################################
-pts1 = np.float32(
-        [[0,H],     # bottom left
-        [420,340], # top left
-        [540,340], # top right
-        [W,H]      # bottom right
+def undistort(img, mtx, dist):
+    H, W = img.shape[:2]
+    new_mtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (W, H), 0, (W, H))
+    return cv.undistort(img, mtx, dist, None, new_mtx)
+
+
+def perspective_matrices(W, H):
+    src = np.float32(
+            [[130,H],     # bottom left
+            [438,335],    # top left
+            [530,335],    # top right
+            [870,H]       # bottom right
+            ])
+    dst = np.float32([
+            [0.20 * W, H],
+            [0.20 * W, 0],
+            [0.80 * W, 0],
+            [0.80 * W, H],
         ])
-pts2 = np.float32([
-        [0.10 * W, H],
-        [0.10 * W, 0],
-        [0.90 * W, 0],
-        [0.90 * W, H],
-    ])
-pts3 = np.float32(
-        [[375, 480],     # bottom left
-        [905, 480],      # top left
-        [1811, 685],     # top right
-        [-531, 685]      # bottom right
-        ])
-pts4 = np.float32([
-        [0, 0],
-        [500, 0],
-        [500, 600],
-        [0, 600],
-    ])
+    return cv.getPerspectiveTransform(src, dst), cv.getPerspectiveTransform(dst, src)
 
 
-M = cv.getPerspectiveTransform(pts1,pts2)
-N = cv.getPerspectiveTransform(pts3,pts4)
-
-warped = cv.warpPerspective(img,M,(W,H))
-warped2 = cv.warpPerspective(img2,N,(W,H))
+def warp(img, M):
+    H, W = img.shape[:2]
+    return cv.warpPerspective(img, M, (W, H))
 
 
-cv.imshow('Warped', warped2)
+def to_binary(warped, r_thresh=190, h_range=(15, 40), s_min=70, v_min=100):
+    white = (warped[:, :, 2] >= r_thresh).astype(np.uint8)
 
-######################################################################################
-r_thresh=190
-r = warped[:, :, 2]
-red = (r >= r_thresh).astype(np.uint8)
-cv.imshow('White', red*255)
+    hsv = cv.cvtColor(warped, cv.COLOR_BGR2HSV)
+    lower = np.array([h_range[0], s_min, v_min], dtype=np.uint8)
+    upper = np.array([h_range[1], 255, 255], dtype=np.uint8)
+    yellow = (cv.inRange(hsv, lower, upper) > 0).astype(np.uint8)
 
-h_range=(15, 40)
-s_min=90        
-v_min=100
-hsv = cv.cvtColor(warped, cv.COLOR_BGR2HSV)
-lower = np.array([h_range[0], s_min, v_min], dtype=np.uint8)
-upper = np.array([h_range[1], 255, 255], dtype=np.uint8)
-yellow = (cv.inRange(hsv, lower, upper) > 0).astype(np.uint8)
-cv.imshow('Yellow', yellow*255)
-
-mask = red 
-kernel = np.ones((3, 3), np.uint8)
-gray =  cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
-cv.imshow('GRAY', gray*255)
+    kernel = np.ones((3, 3), np.uint8)
+    return cv.morphologyEx(white | yellow, cv.MORPH_OPEN, kernel)
 
 
-############################## Fit Viusual 2 ##########################################
 def find_lane_pixels(binary, nwindows=9, margin=100, minpix=50):
     h, w = binary.shape
     # Histogram of the bottom half -> peaks are the lane line bases
@@ -125,31 +85,106 @@ def find_lane_pixels(binary, nwindows=9, margin=100, minpix=50):
             nonzerox[right_inds], nonzeroy[right_inds])
 
 
-leftx, lefty, rightx, righty = find_lane_pixels(gray)
-
-# Fit x = A*y^2 + B*y + C (x as a function of y, lines are near vertical)
-left_fit = np.polyfit(lefty, leftx, 2)
-right_fit = np.polyfit(righty, rightx, 2)
-
-ploty = np.linspace(0, H - 1, H)
-left_fitx = left_fit[0] * ploty**2 + left_fit[1] * ploty + left_fit[2]
-right_fitx = right_fit[0] * ploty**2 + right_fit[1] * ploty + right_fit[2]
-
-# Visualization
-out_img = np.dstack((gray, gray, gray)) * 255
-out_img[lefty, leftx] = [0, 0, 255]
-out_img[righty, rightx] = [255, 0, 0]
-left_pts = np.int32(np.column_stack((left_fitx, ploty)))
-right_pts = np.int32(np.column_stack((right_fitx, ploty)))
-cv.polylines(out_img, [left_pts], False, (0, 255, 255), 3)
-cv.polylines(out_img, [right_pts], False, (0, 255, 255), 3)
-cv.imshow('Lane fit', out_img)
-
-######################################################################################
+def fit_lines(binary):
+    leftx, lefty, rightx, righty = find_lane_pixels(binary)
+    # Fit x = A*y^2 + B*y + C (x as a function of y, lines are near vertical)
+    left_fit = np.polyfit(lefty, leftx, 2)
+    right_fit = np.polyfit(righty, rightx, 2)
+    return left_fit, right_fit, (leftx, lefty, rightx, righty)
 
 
+def draw_fit(binary, left_fit, right_fit, pixels):
+    leftx, lefty, rightx, righty = pixels
+    H = binary.shape[0]
+    ploty = np.arange(H)
+
+    out_img = np.dstack((binary, binary, binary)) * 255
+    out_img[lefty, leftx] = [0, 0, 255]
+    out_img[righty, rightx] = [255, 0, 0]
+    for fit in (left_fit, right_fit):
+        pts = np.int32(np.column_stack((np.polyval(fit, ploty), ploty)))
+        cv.polylines(out_img, [pts], False, (0, 255, 255), 3)
+    return out_img
 
 
-cv.waitKey(0)
+def curvature_and_offset(left_fit, right_fit, pixels, W, H):
+    leftx, lefty, rightx, righty = pixels
+    y_eval = H - 1  # bottom of the image = closest to the car
+    left_x_bottom = np.polyval(left_fit, y_eval)
+    right_x_bottom = np.polyval(right_fit, y_eval)
 
-cv.destroyAllWindows()
+    xm_per_pix = LANE_WIDTH_M / (right_x_bottom - left_x_bottom)
+    ym_per_pix = LANE_LENGTH_M / H
+    y_m = y_eval * ym_per_pix
+
+    # Refit in meters, then R = (1 + (2Ay + B)^2)^1.5 / |2A|
+    radii = []
+    for x, y in ((leftx, lefty), (rightx, righty)):
+        A, B, _ = np.polyfit(y * ym_per_pix, x * xm_per_pix, 2)
+        radii.append((1 + (2 * A * y_m + B)**2)**1.5 / max(abs(2 * A), 1e-6))
+    curvature = np.mean(radii)
+
+    # Camera is mounted at the car's center -> car is at the image center column
+    lane_center = (left_x_bottom + right_x_bottom) / 2
+    offset_m = (W / 2 - lane_center) * xm_per_pix  # >0: car is right of lane center
+    return curvature, offset_m
+
+
+def draw_lane(img, left_fit, right_fit, Minv, curvature, offset_m):
+    H, W = img.shape[:2]
+    ploty = np.arange(H)
+    pts_left = np.column_stack((np.polyval(left_fit, ploty), ploty))
+    pts_right = np.flipud(np.column_stack((np.polyval(right_fit, ploty), ploty)))
+
+    # Lane polygon in bird's-eye view: left curve down, right curve back up
+    lane_layer = np.zeros_like(img)
+    cv.fillPoly(lane_layer, [np.int32(np.vstack((pts_left, pts_right)))], (0, 255, 0))
+    cv.polylines(lane_layer, [np.int32(pts_left)], False, (0, 0, 255), 15)
+    cv.polylines(lane_layer, [np.int32(pts_right)], False, (255, 0, 0), 15)
+
+    # Inverse perspective: bird's-eye -> original camera view
+    lane_unwarped = cv.warpPerspective(lane_layer, Minv, (W, H))
+    result = cv.addWeighted(img, 1, lane_unwarped, 0.4, 0)
+
+    side = 'right' if offset_m > 0 else 'left'
+    texts = [f'Curvature: {curvature:.0f} m',
+             f'Vehicle is {abs(offset_m):.2f} m {side} of center']
+    for i, text in enumerate(texts):
+        cv.putText(result, text, (30, 50 + 50 * i), cv.FONT_HERSHEY_SIMPLEX,
+                   1.2, (255, 255, 255), 2, cv.LINE_AA)
+    return result
+
+
+def process_image(img, mtx, dist, M, Minv, show=False):
+    H, W = img.shape[:2]
+    warped = warp(img, M)
+    binary = to_binary(warped)
+    left_fit, right_fit, pixels = fit_lines(binary)
+    curvature, offset_m = curvature_and_offset(left_fit, right_fit, pixels, W, H)
+    result = draw_lane(img, left_fit, right_fit, Minv, curvature, offset_m)
+
+    if show:
+        cv.imshow('Warped', warped)
+        cv.imshow('Binary', binary * 255)
+        cv.imshow('Lane fit', draw_fit(binary, left_fit, right_fit, pixels))
+        print(f'Curvature: {curvature:.0f} m')
+        print(f'Vehicle is {abs(offset_m):.2f} m {"right" if offset_m > 0 else "left"} of center')
+    return result
+
+
+def main():
+    img = cv.imread('test_images/solidWhiteCurve.jpg')
+    assert img is not None, 'file could not be read, check with os.path.exists()'
+
+    H, W = img.shape[:2]
+    mtx, dist = load_calibration()
+    M, Minv = perspective_matrices(W, H)
+
+    result = process_image(img, mtx, dist, M, Minv, show=True)
+    cv.imshow('Result', result)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main()
