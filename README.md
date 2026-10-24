@@ -1,7 +1,5 @@
 
 
-https://github.com/user-attachments/assets/0100387c-8a40-4b43-9ad2-11e7417e529b
-
 ## Writeup Template
 
 ### You use this file as a template for your writeup.
